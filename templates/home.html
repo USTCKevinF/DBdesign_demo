@@ -21,7 +21,8 @@
         }
         .content {
             padding: 2rem;
-            text-align: center;
+            max-width: 800px;
+            margin: 0 auto;
         }
         .logout-btn {
             background-color: #f44336;
@@ -30,9 +31,85 @@
             padding: 0.5rem 1rem;
             border-radius: 4px;
             cursor: pointer;
+            text-decoration: none;
         }
         .logout-btn:hover {
             background-color: #d32f2f;
+        }
+        .new-log-btn {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 1rem;
+        }
+        .new-log-btn:hover {
+            background-color: #1976D2;
+        }
+        .log-list {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            padding: 1rem;
+        }
+        .log-item {
+            border-bottom: 1px solid #eee;
+            padding: 1rem 0;
+        }
+        .log-item:last-child {
+            border-bottom: none;
+        }
+        .log-title {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+        .log-content {
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+        .log-meta {
+            color: #999;
+            font-size: 0.9rem;
+        }
+        .log-actions {
+            margin-top: 0.5rem;
+        }
+        .action-btn {
+            padding: 0.25rem 0.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 0.5rem;
+        }
+        .edit-btn {
+            background-color: #FFC107;
+            color: black;
+        }
+        .delete-btn {
+            background-color: #f44336;
+            color: white;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 50%;
+        }
+        .close {
+            float: right;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -42,8 +119,139 @@
         <a href="{{ url_for('logout') }}" class="logout-btn">退出登录</a>
     </div>
     <div class="content">
-        <h2>欢迎使用个人日志管理系统</h2>
-        <p>这是一个测试页面，后续将添加更多功能</p>
+        <button class="new-log-btn" onclick="showNewLogModal()">新建日志</button>
+        <div class="log-list">
+            {% for log in logs %}
+            <div class="log-item">
+                <div class="log-title">{{ log.title }}</div>
+                <div class="log-content">{{ log.content }}</div>
+                <div class="log-meta">创建时间：{{ log.create_time }}</div>
+                <div class="log-actions">
+                    <button class="action-btn edit-btn" onclick="showEditModal({{ log.log_id }}, '{{ log.title }}', '{{ log.content }}')">编辑</button>
+                    <button class="action-btn delete-btn" onclick="deleteLog({{ log.log_id }})">删除</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
     </div>
+
+    <!-- 新建日志模态框 -->
+    <div id="newLogModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeNewLogModal()">&times;</span>
+            <h2>新建日志</h2>
+            <form id="newLogForm" onsubmit="return submitNewLog(event)">
+                <div style="margin-bottom: 1rem;">
+                    <label for="newTitle">标题</label>
+                    <input type="text" id="newTitle" name="title" required style="width: 100%; padding: 0.5rem;">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label for="newContent">内容</label>
+                    <textarea id="newContent" name="content" required style="width: 100%; height: 200px; padding: 0.5rem;"></textarea>
+                </div>
+                <button type="submit" style="background-color: #4CAF50; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">保存</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 编辑日志模态框 -->
+    <div id="editLogModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditLogModal()">&times;</span>
+            <h2>编辑日志</h2>
+            <form id="editLogForm" onsubmit="return submitEditLog(event)">
+                <input type="hidden" id="editLogId" name="log_id">
+                <div style="margin-bottom: 1rem;">
+                    <label for="editTitle">标题</label>
+                    <input type="text" id="editTitle" name="title" required style="width: 100%; padding: 0.5rem;">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label for="editContent">内容</label>
+                    <textarea id="editContent" name="content" required style="width: 100%; height: 200px; padding: 0.5rem;"></textarea>
+                </div>
+                <button type="submit" style="background-color: #4CAF50; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">保存</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 新建日志相关函数
+        function showNewLogModal() {
+            document.getElementById('newLogModal').style.display = 'block';
+        }
+
+        function closeNewLogModal() {
+            document.getElementById('newLogModal').style.display = 'none';
+        }
+
+        function submitNewLog(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            fetch('/log', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message);
+                }
+            });
+            return false;
+        }
+
+        // 编辑日志相关函数
+        function showEditModal(logId, title, content) {
+            document.getElementById('editLogId').value = logId;
+            document.getElementById('editTitle').value = title;
+            document.getElementById('editContent').value = content;
+            document.getElementById('editLogModal').style.display = 'block';
+        }
+
+        function closeEditLogModal() {
+            document.getElementById('editLogModal').style.display = 'none';
+        }
+
+        function submitEditLog(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            fetch('/log', {
+                method: 'PUT',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message);
+                }
+            });
+            return false;
+        }
+
+        // 删除日志函数
+        function deleteLog(logId) {
+            if (confirm('确定要删除这篇日志吗？')) {
+                fetch('/log', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ log_id: logId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.message);
+                    }
+                });
+            }
+        }
+    </script>
 </body>
 </html> 
